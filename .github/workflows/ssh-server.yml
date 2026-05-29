@@ -1,0 +1,38 @@
+name: SSH via Cloudflare Tunnel
+
+on:
+  workflow_dispatch:
+
+jobs:
+  ssh-server:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup SSH Server
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openssh-server curl
+          
+          # Configure SSH
+          sudo systemctl start ssh
+          echo "runner:temp123" | sudo chpasswd
+          
+      - name: Create Cloudflared Tunnel
+        run: |
+          # Download cloudflared
+          curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o cloudflared
+          chmod +x cloudflared
+          
+          # Start tunnel in background
+          ./cloudflared tunnel --url ssh://localhost:22 2>&1 | tee /tmp/tunnel.log &
+          sleep 5
+          
+          # Extract trycloudflare URL
+          TUNNEL_URL=$(grep -o "https://.*\.trycloudflare\.com" /tmp/tunnel.log)
+          echo "SSH Connection: ssh runner@${TUNNEL_URL#https://}"
+          
+          # Keep alive
+          sleep 7200
