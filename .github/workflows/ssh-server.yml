@@ -1,38 +1,24 @@
-name: SSH via Cloudflare Tunnel
+name: Web Terminal
 
 on:
   workflow_dispatch:
 
 jobs:
-  ssh-server:
+  terminal:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 60
     
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Setup SSH Server
+      - name: Setup Web Terminal
         run: |
-          sudo apt-get update
-          sudo apt-get install -y openssh-server curl
+          # Install gotty
+          wget https://github.com/yudai/gotty/releases/download/v1.0.1/gotty_linux_amd64.tar.gz
+          tar -xf gotty_linux_amd64.tar.gz
           
-          # Configure SSH
-          sudo systemctl start ssh
-          echo "runner:temp123" | sudo chpasswd
+          # Run terminal on port 8080
+          ./gotty -w bash &
           
-      - name: Create Cloudflared Tunnel
+      - name: Expose with localtunnel
         run: |
-          # Download cloudflared
-          curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o cloudflared
-          chmod +x cloudflared
-          
-          # Start tunnel in background
-          ./cloudflared tunnel --url ssh://localhost:22 2>&1 | tee /tmp/tunnel.log &
-          sleep 5
-          
-          # Extract trycloudflare URL
-          TUNNEL_URL=$(grep -o "https://.*\.trycloudflare\.com" /tmp/tunnel.log)
-          echo "SSH Connection: ssh runner@${TUNNEL_URL#https://}"
-          
-          # Keep alive
-          sleep 7200
+          npm install -g localtunnel
+          lt --port 8080
